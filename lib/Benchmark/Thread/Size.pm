@@ -3,7 +3,7 @@ package Benchmark::Thread::Size;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our $VERSION : unique = '0.02';
+$VERSION = '0.03';
 use strict;
 
 # Satisfy -require-
@@ -260,6 +260,8 @@ RAMTHREAD1
 } #_ramthread1
 
 #---------------------------------------------------------------------------
+
+__END__
 
 =head1 NAME
 

@@ -1,3 +1,7 @@
+0.03	1 October 2002
+	Removed "our" from $VERSION, should shave off some bytes in
+	memory usage, as found from testing.
+
 0.02	24 September 2002
 	Renamed module to "Benchmark::Thread::Size" as per suggestion of
 	Arthur Bergman.

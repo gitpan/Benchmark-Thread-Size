@@ -3,7 +3,7 @@ package Benchmark::Thread::Size;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 use strict;
 
 # Satisfy -require-
@@ -19,13 +19,15 @@ sub import {
 # Lose the class
 # Initialize the parameters hash
 # Initialize the number of times setting
+# Initialize the oneliner flag
 # Initialize the reference only flag
 # Initialize the key list
 
     shift;
     my %param;
     my $times = '';
-    my $refonly;
+    my $oneliner = (join( ' ',caller() ) eq 'main - 0');
+    my $refonly = $oneliner;
     my @key;
 
 # While there are keys to be obtained
@@ -67,9 +69,11 @@ sub import {
 
 # Execute the test script
 # Remove the test scripts from the face of the earth
+# Exit now if it was a one-liner
 
     system( "$^X -w ramthread $times @key" );
     unlink( qw(ramthread ramthread1),@key );
+    exit if $oneliner;
 } #import
 
 #---------------------------------------------------------------------------
@@ -180,7 +184,7 @@ RAMTHREAD
 sub _ramthread1 {
 
 # Attempt to create the sub test script
-# Write out the script
+# Write out the script (single quoted as this is completely stand-alone)
 
     open( my $out,'>','ramthread1' ) or die "Could not initialize script: $!\n";
     print $out <<'RAMTHREAD1';
@@ -195,65 +199,126 @@ sub _ramthread1 {
 
 my %size;
 
+# The Windows process info object
+# At compile time
+#  If we're on a Win32 system
+#   Make sure we got the Win32 Process Info bits
+#   And initialize it
+
+my $wpi; 
+BEGIN {
+    if ($^O =~ m#MSWin#) {
+        require Win32::Process::Info;
+        $wpi = Win32::Process::Info->new; 
+    }
+} #BEGIN
+
+# Initialize the code to be attempted
+# Obtain the filename, if successful
+#  Enable slurp mode
+#  Obtain all of it
+
 my $code = '';
 if (my $file = shift) {
     open( my $in,'<',$file ) or die "Could not read source from $file: $!\n";
-    $code = join( '',<$in> );
-    close( $in );
+    local $/;
+    $code = <$in>;
 }
+
+# Initialize the test file anme
+# For all of the number of threads we want to try this for
+#  Let the world know how many we're doing now
 
 my $testfile = '_test_ramthread';
 foreach my $threads (0,1,2,5,10,20,50,100) {
     printf STDERR '%4d',$threads;
-    open( my $script,'>',$testfile ) or die "Could not open $testfile: $!\n";
 
-# create the external script to be executed
+#  Create the script that will do the actual execution (as clean as possible)
+#  Put the necessary code in here (double quoted is easier this time)
+#  Make sure the testfile is written correctly
+
+    open( my $script,'>',$testfile ) or die "Could not open $testfile: $!\n";
     print $script <<EOD;
 \$| = 1;               # make sure everything gets sent immediately
 print "\$\$\\n";       # make sure parent knows the pid
 
-use threads ();
+use threads ();        # yes, we do need threads  ;-)
 
 $code                  # whatever was received from STDIN
 
-for (\$i=0; \$i< $threads ; \$i++) {
+for (\$i=0; \$i< $threads ; \$i++) { 
   threads->new( sub {print "started\\n"; sleep( 86400 )} );
 }
-print "done\\n";
+print "done\\n";       # make sure the world knows we're done
 <>;                    # make sure it waits until killed
 EOD
-
     close( $script ) or die "Could not close $testfile: $!\n";
+
+#  Run the testfile
+#  Get the pid (returned on first line by the script)
+#  Initialize the number of threads that have started
+#  Initialize the numbe of times the main thread signals it's ready
 
     open( my $out,"$^X -w $testfile |" ) or die "Could not run $testfile: $!\n";
     chomp( my $pid = <$out> );
     my $started = 0;
     my $done = 0;
+
+#  While there are lines to be read
+#  Increment done flag if done found
+#  Increment thread started flag if started found
+#  Outloop if all threads started and main thread signalled it was done
+
     while (<$out>) {
         $done++ if m#^done#;
         $started++ if m#^started#;
         last if $done and $started == $threads;
     }
 
-# this may need tweaking on non-Linux systems
+#  Initialize the size
+#  While we don't have a size yet and the program's still running
+#   If we're on Windows
+#    Get the size information using the applicable API
+
     my $size = 0;
     while (!$size and kill 0,$pid) {
-        open( my $ps,"ps -o rss= -p $pid |" )
-         or die "Could not ps -o rss= -p $pid: $!\n";
-        while (<$ps>) {
-            $size = $1 if m#(\d+)#;
+        if ($wpi) {
+            $size = ($wpi->GetProcInfo( $pid ))[0]->{'WorkingSetSize'}/1024;
+
+#   Else (we're not on Windows *phew*  ;-)
+#    Open a pipe to process information
+#    While something being returned by the pipe
+#     Keep it if it looks like a size
+#    Close the pipe for good measure
+#  Remember the size for this number of threads
+
+        } else {
+            open( my $ps,"ps -o rss= -p $pid |" )
+             or die "Could not ps -o rss= -p $pid: $!\n";
+            while (<$ps>) {
+                $size = $1 if m#(\d+)#;
+            }
+            close( $ps );       # don't care whether successful
         }
-        close( $ps );       # don't care whether successful
     }
     $size{$threads} = $size;
 
-    kill 9,$pid;        # not interested in cleanup, just speed
+#  Kill the process quickly (should work even on Windows)
+#  Close the pipe for good measure
+#  Remove the script
+#  Move cursor so the next number can be shown
+
+    kill 9,$pid;
     close( $out );      # don't care whether successful
     unlink( $testfile );
     print STDERR "\b\b\b\b";
 }
 
-# print the report
+# Calculate the base size
+# Initialize the difference
+# For all of the number of threads, sorted by number of threads
+#  Tell the world what we got
+
 my $base = $size{0};
 my $diff;
 foreach my $threads (sort {$a <=> $b} keys %size) {
@@ -283,7 +348,9 @@ Benchmark::Thread::Size - report size of threads for different code approaches
   use threads::shared;
   E2
 
-  use Benchmark::Thread::Size 'refonly'; # do reference run only
+  use Benchmark::Thread::Size 'refonly';    # do reference run only
+
+  perl -MBenchmark::Thread::Size=times,100  # as a one-liner for developers
 
 =head1 DESCRIPTION
 
@@ -378,7 +445,8 @@ run will be executed.  The default is 10.
 
 The word 'refonly' indicates that the reference runs will be executed even if
 there is no further code specified.  This is important mostly when trying
-different approaches to the Perl core modules.
+different approaches to the Perl core modules or when benchmarking different
+versions of Perl.  This is the default if the module is loaded as a one-liner.
 
 =head2 identifier => 'code'
 
@@ -388,7 +456,31 @@ to be executed.
 =head1 SUBROUTINES
 
 There are no subroutines to call: all values need to be specified with the
-C<use> command.
+C<use> command in source, or as parameters on the command line.
+
+=head1 CALLING FROM THE COMMAND LINE
+
+For developers of Perl and/or threads.pm alternatives, it is also possible to
+only have the "reference" run be done by simply calling Benchmark::Thread::Size
+from the command line.  For example:
+
+  perl.21116-threaded -MBenchmark::Thread::Size
+
+will do the reference run 10 times using the "perl.21116-threaded" Perl
+executable.  If you want to change the number of times the reference run is
+done, you can specify that also on the command line as you would normally
+specify any parameters for the import() subroutine on the command line:
+
+  perl5.8.0-threaded -MBenchmark::Thread::Size=times,50
+
+will execute the reference run 50 times using the "per5.8.0-threaded" Perl
+executable.
+
+Since the Benchmark::Thread::Size is a Pure Perl module, it is technically
+possible to use the module from anywhere on your system, even when it is
+installed in another Perl's tree.  This can be achieved by specifying the
+-I/other/directory parameter in which "/other/directory" points to the
+directory where the "Benchmark" directory is located.
 
 =head1 WHAT IT DOES
 
@@ -447,11 +539,12 @@ Currently the size of the process is measured by doing a:
 
   ps -o rss= -p $pid
 
-However, this may not be as portable as I would like.  If you would like to
-use Benchmark::Thread::Size on your system and the above doesn't work, please
-send me a string for your system that writes out the size of the given process
-to STDOUT and the condition that should be used to determine that that string
-should be used instead of the above default.
+on non-Windows systems.  On Windows systems, this is done by:
+
+  (Win32::Process::Info->new)->GetProcInfo( $pid ))[0]->{'WorkingSetSize'}/1024
+  
+If you feel that the process size measurement can be done more accurately in
+a different way for you favourite Operating System, please let me know.
 
 =head1 AUTHOR
 
@@ -460,6 +553,9 @@ Elizabeth Mattijsen, <liz@dijkmat.nl>.
 Please report bugs to <perlbugs@dijkmat.nl>.
 
 =head1 ACKNOWLEDGEMENTS
+
+Frank Tolstrup for supplying the magic incantation for getting process size
+measurement going on Windows.
 
 James FitzGibbon for pointing out a more portable "ps" string and the fact
 that "ps" on Mac OS X has a bug in it.

@@ -5,7 +5,7 @@ BEGIN {				# Magic Perl CORE pragma
     }
 }
 
-use Test::More tests => 8;
+use Test::More tests => 11;
 use strict;
 use warnings;
 
@@ -19,10 +19,11 @@ EOD
 ok( close( $handle ),			'close script' );
 ok( -s $file,				'check whether script exists' );
 
-$/ = undef;
-ok( open( my $report,"$^X $file |" ),	'run the test' );
-my $text = <$report>;
-ok( $text =~ m/#   \(ref\)\s+
+foreach ($file,'-Ilib -MBenchmark::Thread::Size=times,1') {
+    $/ = undef;
+    ok( open( my $report,"$^X $file |" ),	'run the test' );
+    my $text = <$report>;
+    ok( $text =~ m/#   \(ref\)\s+
   0\s+\d+\s+
   1\s+\d+\s+
   2\s+\d+\s+
@@ -33,8 +34,7 @@ ok( $text =~ m/#   \(ref\)\s+
 100\s+\d+\s+
 
 ==================================================================
-/s,					'check the report' ) or warn "'$text'\n";
-
-ok( close( $report ),			'close report' );
-
+/s, 'check the report' ) or warn "'$text'\n";
+    ok( close( $report ),			'close report' );
+}
 ok( unlink( $file ),			'unlink script' );

@@ -1,3 +1,20 @@
+0.06	16 September 2003
+	It is now possible to run Benchmark::Thread::Size in 'refonly' mode
+	from the command line.  This was added so that it is easier to check
+	different threads implementations and/or real-time updates to the
+	threads modules.  Added documentation and tets-suite for this as well.
+
+	Added some more internal documentation to the ramthread* scripts
+	being created.  Even though they're created on the fly and removed
+	afterwards, they could use a little more documentation (looking back
+	at them about a year later).
+
+	Frank Tolstrup was so kind to send me the code to measure process size
+	under Windows.  Now transparently included, which means this module
+	now also works under Windows!  Updated the "HOW TO MEASURE SIZE?"
+	section.  Added Win32::Process::Info as a conditional prerequisite
+	when making on a Windows system.
+
 0.05	8 September 2003
 	Added "refonly" flag to allow for the reference information only to
 	be checked.  Added documentation and test-suite for it.

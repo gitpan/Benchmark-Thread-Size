@@ -3,7 +3,7 @@ package Benchmark::Thread::Size;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 use strict;
 
 # Satisfy -require-
@@ -19,16 +19,20 @@ sub import {
 # Lose the class
 # Initialize the parameters hash
 # Initialize the number of times setting
+# Initialize the reference only flag
 # Initialize the key list
 
     shift;
     my %param;
     my $times = '';
+    my $refonly;
     my @key;
 
 # While there are keys to be obtained
 #  If it is the times setting
 #   Set that
+#  Elseif we want the reference only
+#   Set reference only flag
 #  Else (key + code setting)
 #   Associate the code with this key
 #   Keep the key for the right order
@@ -37,12 +41,14 @@ sub import {
     while (my $key = shift) {
         if ($key eq 'times') {
             $times = shift;
+        } elsif ($key eq 'refonly') {
+            $refonly = 1;
         } else {
             $param{$key} = shift;
             push( @key,$key );
         }
     }
-    return unless keys %param;
+    return unless $refonly or keys %param;
 
 # Initialize the test scripts
 
@@ -277,6 +283,8 @@ Benchmark::Thread::Size - report size of threads for different code approaches
   use threads::shared;
   E2
 
+  use Benchmark::Thread::Size 'refonly'; # do reference run only
+
 =head1 DESCRIPTION
 
                   *** A note of CAUTION ***
@@ -356,6 +364,26 @@ memory.  And that strangely enough using a fully qualified $module::VERSION
 seems to be equivalent to using a bare $VERSION upto 50 threads.  At 100
 threads however, the fully qualified $module::VERSION seems to use as much as
 with the ":unique" attribute.  Who knows what's going on there.
+
+=head1 PARAMETERS
+
+You can specify the following parameters with the C<use> command.
+
+=head2 times => 5
+
+The word 'times' followed by a numeric value, indicates how many times each
+run will be executed.  The default is 10.
+
+=head2 'refonly'
+
+The word 'refonly' indicates that the reference runs will be executed even if
+there is no further code specified.  This is important mostly when trying
+different approaches to the Perl core modules.
+
+=head2 identifier => 'code'
+
+Any other string followed by Perl code (as a string) indicates a set of runs
+to be executed.
 
 =head1 SUBROUTINES
 

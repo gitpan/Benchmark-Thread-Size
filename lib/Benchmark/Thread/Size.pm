@@ -3,8 +3,27 @@ package Benchmark::Thread::Size;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 use strict;
+
+# Initialize the modules to be loaded string
+# While compiling
+#  Set to use forks if forks.pm loaded, otherwise threads
+#  Set to use forks::shared if forks::shared.pm loaded, else threads::shared
+
+my $modules;
+BEGIN {
+    if ($forks::threads) {
+        $modules = 'use forks;';
+        $modules .= 'use forks::shared;'
+         if $threads::shared::threads_shared;
+        $SIG{'CHLD'} = 'IGNORE';
+    } else {
+        $modules = 'use threads ();';
+        $modules .= 'use threads::shared ();'
+         if $threads::shared::threads_shared;
+    }
+} #BEGIN
 
 # Satisfy -require-
 
@@ -72,7 +91,7 @@ sub import {
 # Exit now if it was a one-liner
 
     system( "$^X -w ramthread $times @key" );
-    unlink( qw(ramthread ramthread1),@key );
+#    unlink( qw(ramthread ramthread1),@key );
     exit if $oneliner;
 } #import
 
@@ -88,6 +107,7 @@ sub _ramthread {
 # Write out the script
 
     open( my $out,'>','ramthread' ) or die "Could not initialize script: $!\n";
+    print $out "\$SIG{'CHLD'} = 'IGNORE';\n" if $forks::threads;
     print $out <<'RAMTHREAD';
 # ramthread - test more than one piece of code
 # - first parameter (optional): number of repetitions (default: 10)
@@ -186,7 +206,9 @@ sub _ramthread1 {
 # Attempt to create the sub test script
 # Write out the script (single quoted as this is completely stand-alone)
 
+    my $module = $forks::VERSION ? 'forks' : 'threads';
     open( my $out,'>','ramthread1' ) or die "Could not initialize script: $!\n";
+    print $out "my \$modules = '$modules';\n";
     print $out <<'RAMTHREAD1';
 # ramthread1 - test a single piece of code for a varying number of threads.
 #
@@ -239,10 +261,9 @@ foreach my $threads (0,1,2,5,10,20,50,100) {
 
     open( my $script,'>',$testfile ) or die "Could not open $testfile: $!\n";
     print $script <<EOD;
+$modules               # make sure we get the right modules
 \$| = 1;               # make sure everything gets sent immediately
 print "\$\$\\n";       # make sure parent knows the pid
-
-use threads ();        # yes, we do need threads  ;-)
 
 $code                  # whatever was received from STDIN
 
@@ -308,9 +329,9 @@ EOD
 #  Remove the script
 #  Move cursor so the next number can be shown
 
-    kill 9,$pid;
+    kill 15,$pid;
     close( $out );      # don't care whether successful
-    unlink( $testfile );
+#    unlink( $testfile );
     print STDERR "\b\b\b\b";
 }
 
@@ -457,6 +478,10 @@ to be executed.
 
 There are no subroutines to call: all values need to be specified with the
 C<use> command in source, or as parameters on the command line.
+
+=head1 REQUIRED MODULES
+
+ Devel::Required (any)
 
 =head1 CALLING FROM THE COMMAND LINE
 

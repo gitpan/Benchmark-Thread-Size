@@ -1,0 +1,8 @@
+MANIFEST
+CHANGELOG
+README
+TODO
+VERSION
+Makefile.PL
+lib/Benchmark/Thread/Size.pm
+t/Size.t

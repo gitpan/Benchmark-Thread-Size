@@ -1,0 +1,9 @@
+0.02	24 September 2002
+	Renamed module to "Benchmark::Thread::Size" as per suggestion of
+	Arthur Bergman.
+
+	Added logic to _ramthread so that the keys will always appear in the
+	report in the order they were given, rather than alphabetical.
+
+0.01	23 September 2002
+	First version of Thread::Benchmark::Size.

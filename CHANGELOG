@@ -1,3 +1,11 @@
+0.04	13 August 2003
+	Cleaned up Makedfile.PL and updated copyright info.  Made sure the
+	test-suite runs with warnings enabled (a few tweaks were necessary).
+
+	Changed the logic for obtaining the size of a process slightly to
+	account for many operating systems: Mac OS X should now also be
+	supported, even with a buggy "ps".  Thanks to James FitzGibbon.
+
 0.03	1 October 2002
 	Removed "our" from $VERSION, should shave off some bytes in
 	memory usage, as found from testing.

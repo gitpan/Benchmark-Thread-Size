@@ -6,3 +6,4 @@ VERSION
 Makefile.PL
 lib/Benchmark/Thread/Size.pm
 t/Size.t
+META.yml                                Module meta-data (added by MakeMaker)

@@ -3,7 +3,7 @@ package Benchmark::Thread::Size;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 use strict;
 
 # Satisfy -require-
@@ -232,9 +232,11 @@ EOD
 # this may need tweaking on non-Linux systems
     my $size = 0;
     while (!$size and kill 0,$pid) {
-        open( my $ps,"ps --no-heading -o rss $pid |" )
-         or die "Could not ps: $!\n";
-        chomp( $size = <$ps> || '' );
+        open( my $ps,"ps -o rss= -p $pid |" )
+         or die "Could not ps -o rss= -p $pid: $!\n";
+        while (<$ps>) {
+            $size = $1 if m#(\d+)#;
+        }
         close( $ps );       # don't care whether successful
     }
     $size{$threads} = $size;
@@ -252,7 +254,7 @@ foreach my $threads (sort {$a <=> $b} keys %size) {
     printf( "%3d %6d %6d %9d\n",
      $threads,
      $size{$threads},
-     $diff = $size{$threads}-$base,
+     $diff = $size{$threads} - $base,
      $threads ? (1024 * $diff) / $threads : 0,
      );
 }
@@ -415,7 +417,7 @@ place, but it was the easiest thing to code.
 
 Currently the size of the process is measured by doing a:
 
-  ps --no-heading -o rss $pid
+  ps -o rss= -p $pid
 
 However, this may not be as portable as I would like.  If you would like to
 use Benchmark::Thread::Size on your system and the above doesn't work, please
@@ -429,9 +431,14 @@ Elizabeth Mattijsen, <liz@dijkmat.nl>.
 
 Please report bugs to <perlbugs@dijkmat.nl>.
 
+=head1 ACKNOWLEDGEMENTS
+
+James FitzGibbon for pointing out a more portable "ps" string and the fact
+that "ps" on Mac OS X has a bug in it.
+
 =head1 COPYRIGHT
 
-Copyright (c) 2002 Elizabeth Mattijsen <liz@dijkmat.nl>. All rights
+Copyright (c) 2002-2003 Elizabeth Mattijsen <liz@dijkmat.nl>. All rights
 reserved.  This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
